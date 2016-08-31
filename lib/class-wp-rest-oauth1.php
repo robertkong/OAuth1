@@ -76,6 +76,7 @@ class WP_REST_OAuth1 {
 		if ( function_exists( 'getallheaders' ) ) {
 			$headers = getallheaders();
 
+
 			// Check for the authoization header case-insensitively
 			foreach ( $headers as $key => $value ) {
 				if ( strtolower( $key ) === 'authorization' ) {
@@ -88,7 +89,11 @@ class WP_REST_OAuth1 {
 	}
 
 	public function get_parameters( $require_token = true, $extra = array() ) {
+		error_log("Received post paramenters: " . print_r($_POST, true));
 		$params = array_merge( $_GET, $_POST );
+
+		error_log("Received get and post paramenters: " . print_r($params, true));
+		error_log("Received headers: " . print_r(getallheaders(), true));
 		$params = wp_unslash( $params );
 
 		$header = $this->get_authorization_header();
@@ -98,6 +103,7 @@ class WP_REST_OAuth1 {
 			$header = trim( $header );
 
 			$header_params = $this->parse_header( $header );
+            error_log("Parsed headers:" . print_r($header_params, TRUE));
 			if ( ! empty( $header_params ) ) {
 				$params = array_merge( $params, $header_params );
 			}
@@ -164,10 +170,14 @@ class WP_REST_OAuth1 {
 	 * @return WP_User|null|WP_Error Authenticated user on success, null if no OAuth data supplied, error otherwise
 	 */
 	public function authenticate( $user ) {
+		error_log("Start authenticating...");
+		error_log("User: " . print_r($user, true));
+		error_log("this->should_attempt: " . $this->should_attempt);
 		if ( ! empty( $user ) || ! $this->should_attempt ) {
 			return $user;
 		}
 
+		error_log("json_auth_route: " . get_query_var( 'json_oauth_route' ));
 		// Skip authentication for OAuth meta requests
 		if ( get_query_var( 'json_oauth_route' ) ) {
 			return null;
@@ -700,6 +710,8 @@ class WP_REST_OAuth1 {
 
 		$signature = base64_encode( hash_hmac( $hash_algorithm, $string_to_sign, $key, true ) );
 
+		error_log("key=$key, string_to_sign=$string_to_sign");
+		error_log("signature=$signature");
 		if ( ! hash_equals( $signature, $consumer_signature ) ) {
 			return new WP_Error( 'json_oauth1_signature_mismatch', __( 'OAuth signature does not match', 'rest_oauth1' ), array( 'status' => 401 ) );
 		}
@@ -783,13 +795,13 @@ class WP_REST_OAuth1 {
 			return new WP_Error( 'json_oauth1_nonce_already_used', __( 'Invalid nonce - nonce has already been used', 'rest_oauth1' ), array( 'status' => 401 ) );
 
 		$used_nonces[ $timestamp ] = $nonce;
-		
+
 		// Get the current time
 		$current_time = time();
-		
+
 		// Remove expired nonces
 		foreach ( $used_nonces as $nonce_timestamp => $nonce ) {
-			
+
 			// If the nonce timestamp is expired
 			if ( $nonce_timestamp < $current_time - $valid_window )
 				unset( $used_nonces[ $nonce_timestamp ] );
